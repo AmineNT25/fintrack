@@ -70,7 +70,7 @@ export default function TransactionsPage() {
   async function handleBulkDelete() {
     if (!confirm(`Delete ${selectedIds.size} transaction(s)?`)) return
     const results = await Promise.all(
-      [...selectedIds].map(id => fetch(`/api/transactions/${id}`, { method: 'DELETE' }))
+      Array.from(selectedIds).map(id => fetch(`/api/transactions/${id}`, { method: 'DELETE' }))
     )
     const failed = results.filter(r => !r.ok).length
     if (failed) toast.error(`${failed} deletion(s) failed`)
