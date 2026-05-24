@@ -6,7 +6,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { signOut, useSession } from 'next-auth/react'
-import Image from 'next/image'
 
 const navLinks = [
   { name: 'Dashboard',     href: '/dashboard',    icon: LayoutDashboard },
@@ -53,17 +52,9 @@ export function Navigation() {
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-green-500/20 rounded-xl blur-sm" />
-                <div className="relative bg-gradient-to-br from-blue-500/10 to-green-500/10 p-2 rounded-xl">
-                  <Image src="/logo.png" alt="FINTRACK Logo" width={32} height={32} className="drop-shadow-lg" />
-                </div>
-              </div>
-              <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-green-400">
-                FINTRACK
-              </span>
-            </div>
+            <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-green-400">
+              FINTRACK
+            </span>
             <div className="flex gap-1">
               {navLinks.map(({ name, href, icon: Icon }) => {
                 const isActive = pathname === href

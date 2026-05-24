@@ -3,11 +3,12 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { Search, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Search, Plus, Pencil, Trash2, X } from 'lucide-react'
 import { CategoryBadge } from '@/components/CategoryBadge'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -25,6 +26,7 @@ interface Transaction {
 }
 
 const emptyForm = { amount: '', type: 'expense', category: 'food', date: '', description: '', notes: '' }
+const emptyBulkForm = { type: '', category: '' }
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -34,6 +36,10 @@ export default function TransactionsPage() {
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkEditOpen, setBulkEditOpen] = useState(false)
+  const [bulkForm, setBulkForm] = useState(emptyBulkForm)
+  const [bulkSaving, setBulkSaving] = useState(false)
   const searchParams = useSearchParams()
   const month = searchParams.get('month') ?? ''
 
@@ -44,6 +50,62 @@ export default function TransactionsPage() {
   }
 
   useEffect(() => { load() }, [month])
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === displayed.length && displayed.length > 0) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(displayed.map(t => t.id)))
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (!confirm(`Delete ${selectedIds.size} transaction(s)?`)) return
+    const results = await Promise.all(
+      [...selectedIds].map(id => fetch(`/api/transactions/${id}`, { method: 'DELETE' }))
+    )
+    const failed = results.filter(r => !r.ok).length
+    if (failed) toast.error(`${failed} deletion(s) failed`)
+    else toast.success(`${selectedIds.size} transaction(s) deleted`)
+    setSelectedIds(new Set())
+    load()
+  }
+
+  async function handleBulkSave() {
+    if (!bulkForm.type && !bulkForm.category) {
+      toast.error('Select at least one field to update')
+      return
+    }
+    setBulkSaving(true)
+    const patch: Record<string, string> = {}
+    if (bulkForm.type) patch.type = bulkForm.type
+    if (bulkForm.category) patch.category = bulkForm.category
+    const results = await Promise.all(
+      [...selectedIds].map(id =>
+        fetch(`/api/transactions/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        })
+      )
+    )
+    setBulkSaving(false)
+    const failed = results.filter(r => !r.ok).length
+    if (failed) toast.error(`${failed} update(s) failed`)
+    else toast.success(`${selectedIds.size} transaction(s) updated`)
+    setBulkEditOpen(false)
+    setBulkForm(emptyBulkForm)
+    setSelectedIds(new Set())
+    load()
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -88,6 +150,9 @@ export default function TransactionsPage() {
     if (search && !(t.description ?? '').toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
+
+  const allSelected = displayed.length > 0 && selectedIds.size === displayed.length
+  const someSelected = selectedIds.size > 0
 
   return (
     <div className="space-y-6">
@@ -155,6 +220,45 @@ export default function TransactionsPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={bulkEditOpen} onOpenChange={v => { setBulkEditOpen(v); if (!v) setBulkForm(emptyBulkForm) }}>
+          <DialogContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
+            <DialogHeader>
+              <DialogTitle className="text-zinc-900 dark:text-zinc-100">
+                Edit {selectedIds.size} Transaction{selectedIds.size !== 1 ? 's' : ''}
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">Only filled fields will be updated across all selected transactions.</p>
+            <div className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select value={bulkForm.type} onValueChange={v => setBulkForm(f => ({ ...f, type: v }))}>
+                  <SelectTrigger className="bg-zinc-50 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800">
+                    <SelectValue placeholder="Keep unchanged" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
+                    <SelectItem value="income">Income</SelectItem>
+                    <SelectItem value="expense">Expense</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select value={bulkForm.category} onValueChange={v => setBulkForm(f => ({ ...f, category: v }))}>
+                  <SelectTrigger className="bg-zinc-50 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800">
+                    <SelectValue placeholder="Keep unchanged" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
+                    {CATEGORIES.map(c => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white" disabled={bulkSaving} onClick={handleBulkSave}>
+                {bulkSaving ? 'Updating…' : `Update ${selectedIds.size} Transaction${selectedIds.size !== 1 ? 's' : ''}`}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card className="p-6 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
@@ -176,10 +280,32 @@ export default function TransactionsPage() {
           </div>
         </div>
 
+        {someSelected && (
+          <div className="flex items-center gap-3 mb-4 px-4 py-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{selectedIds.size} selected</span>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button size="sm" variant="outline" className="border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900"
+                onClick={() => setBulkEditOpen(true)}>
+                <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit Selected
+              </Button>
+              <Button size="sm" variant="outline" className="border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
+                onClick={handleBulkDelete}>
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete Selected
+              </Button>
+              <button className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900 rounded" onClick={() => setSelectedIds(new Set())}>
+                <X className="w-4 h-4 text-blue-500" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-200 dark:border-zinc-800">
+                <th className="py-3 px-4 w-10">
+                  <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} aria-label="Select all" />
+                </th>
                 <th className="text-left py-3 px-4 text-sm text-zinc-600 dark:text-zinc-400">Date</th>
                 <th className="text-left py-3 px-4 text-sm text-zinc-600 dark:text-zinc-400">Description</th>
                 <th className="text-left py-3 px-4 text-sm text-zinc-600 dark:text-zinc-400">Category</th>
@@ -189,7 +315,10 @@ export default function TransactionsPage() {
             </thead>
             <tbody>
               {displayed.map(t => (
-                <tr key={t.id} className="border-b border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800/50">
+                <tr key={t.id} className={`border-b border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 ${selectedIds.has(t.id) ? 'bg-blue-50 dark:bg-blue-950/20' : ''}`}>
+                  <td className="py-3 px-4">
+                    <Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleSelect(t.id)} aria-label="Select row" />
+                  </td>
                   <td className="py-3 px-4 text-sm text-zinc-700 dark:text-zinc-300">{new Date(t.date).toLocaleDateString()}</td>
                   <td className="py-3 px-4 text-sm text-zinc-900 dark:text-zinc-100">{t.description}</td>
                   <td className="py-3 px-4"><CategoryBadge category={t.category} /></td>
@@ -210,7 +339,7 @@ export default function TransactionsPage() {
               ))}
               {displayed.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                  <td colSpan={6} className="py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
                     No transactions found
                   </td>
                 </tr>
