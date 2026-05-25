@@ -89,7 +89,7 @@ export default function TransactionsPage() {
     if (bulkForm.type) patch.type = bulkForm.type
     if (bulkForm.category) patch.category = bulkForm.category
     const results = await Promise.all(
-      [...selectedIds].map(id =>
+      Array.from(selectedIds).map(id =>
         fetch(`/api/transactions/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },

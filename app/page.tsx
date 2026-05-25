@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import {
   BarChart3,
   Target,
@@ -79,17 +78,9 @@ export default function LandingPage() {
       {/* ─── Header ───────────────────────────────────────────── */}
       <header className="border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/30 to-green-500/30 rounded-xl blur-md" />
-              <div className="relative bg-gradient-to-br from-blue-500/10 to-green-500/10 p-2 rounded-xl">
-                <Image src="/logo.png" alt="FINTRACK" width={28} height={28} />
-              </div>
-            </div>
-            <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-blue-600 to-green-600 dark:from-blue-400 dark:to-green-400 bg-clip-text text-transparent">
-              FINTRACK
-            </span>
-          </div>
+          <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-blue-600 to-green-600 dark:from-blue-400 dark:to-green-400 bg-clip-text text-transparent">
+            FINTRACK
+          </span>
 
           <div className="flex items-center gap-3">
             <Link href="/sign-in">
